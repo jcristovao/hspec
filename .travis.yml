@@ -1,7 +1,11 @@
-language: haskell
+language: objective-c
 
-before_install:
-    - ./mk-sdist.sh
+install:
+    - echo noop
 
-    # To install hspec-discover.
-    - cabal install
+script:
+    - brew update
+    - brew install ghc
+    - brew install cabal-install
+    - cabal update && cabal install && cabal install --only-dependencies --enable-tests
+    - cabal clean && cabal test
