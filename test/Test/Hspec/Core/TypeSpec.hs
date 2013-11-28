@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 module Test.Hspec.Core.TypeSpec (main, spec) where
 
 import           Helper
@@ -13,11 +14,11 @@ import qualified Test.Hspec.Runner as H
 main :: IO ()
 main = hspec spec
 
-evaluateExample :: H.Example e => e -> IO H.Result
-evaluateExample e = H.evaluateExample e (defaultParams {H.paramsQuickCheckArgs = (H.paramsQuickCheckArgs defaultParams) {replay = Just (read "", 0)}}) id
+evaluateExample :: (H.Example e,  H.A e ~ ()) => e -> IO H.Result
+evaluateExample e = H.evaluateExample e (defaultParams {H.paramsQuickCheckArgs = (H.paramsQuickCheckArgs defaultParams) {replay = Just (read "", 0)}}) ($ ())
 
-evaluateExampleWith :: H.Example e => (IO () -> IO ()) -> e -> IO H.Result
-evaluateExampleWith action e = H.evaluateExample e (defaultParams {H.paramsQuickCheckArgs = (H.paramsQuickCheckArgs defaultParams) {replay = Just (read "", 0)}}) action
+evaluateExampleWith :: (H.Example e, H.A e ~ ()) => (IO () -> IO ()) -> e -> IO H.Result
+evaluateExampleWith action e = H.evaluateExample e (defaultParams {H.paramsQuickCheckArgs = (H.paramsQuickCheckArgs defaultParams) {replay = Just (read "", 0)}}) (action . ($ ()))
 
 spec :: Spec
 spec = do

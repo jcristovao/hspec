@@ -60,7 +60,7 @@ spec = do
 
     it "takes an example of that behavior" $ do
       let [SpecItem item] = runSpecM (H.it "whatever" True)
-      itemExample item defaultParams id `shouldReturn` Success
+      itemExample item defaultParams ($ ()) `shouldReturn` Success
 
     context "when no description is given" $ do
       it "uses a default description" $ do
@@ -109,10 +109,10 @@ spec = do
           H.it "foo" $ do
             readIORef ref `shouldReturn` 2
 
-  describe "after" $ do
+  describe "after_" $ do
     it "runs an action after each spec item" $ do
       mock <- newMock
-      silence $ H.hspec $ H.after (mockAction mock) $ do
+      silence $ H.hspec $ H.after_ (mockAction mock) $ do
         H.it "foo" $ do
           mockCounter mock `shouldReturn` 0
         H.it "bar" $ do
@@ -120,6 +120,20 @@ spec = do
       mockCounter mock `shouldReturn` 2
 
   describe "around" $ do
+    it "wraps each spec item with an action" $ do
+      property $ \n -> do
+        ref <- newIORef (0 :: Int)
+        let action :: (Int -> IO ()) -> IO ()
+            action e = do
+              e n
+        H.hspec $ H.around action $ do
+        -- silence $ H.hspec $ H.around action $ do
+          H.it "foo" $ \m -> do
+            print m
+            print n
+            m `shouldBe` n
+
+  describe "around_" $ do
     it "wraps each spec item with an action" $ do
       ref <- newIORef (0 :: Int)
       let action :: IO () -> IO ()
@@ -129,7 +143,7 @@ spec = do
             e
             readIORef ref `shouldReturn` 2
             writeIORef ref 3
-      silence $ H.hspec $ H.around action $ do
+      silence $ H.hspec $ H.around_ action $ do
         H.it "foo" $ do
           readIORef ref `shouldReturn` 1
           writeIORef ref 2

@@ -27,10 +27,9 @@ module Test.Hspec.Core (
 
 import           Test.Hspec.Core.Type
 
-mapSpecItem :: (Item -> Item) -> Spec -> Spec
+mapSpecItem :: (Item a -> Item b) -> SpecWith a -> SpecWith b
 mapSpecItem f = fromSpecList . map go . runSpecM
   where
-    go :: SpecTree -> SpecTree
     go spec = case spec of
       SpecItem item -> SpecItem (f item)
       SpecGroup d es -> SpecGroup d (map go es)

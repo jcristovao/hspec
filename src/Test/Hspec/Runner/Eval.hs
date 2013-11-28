@@ -16,7 +16,7 @@ import           Test.Hspec.Timer
 import           Data.Time.Clock.POSIX
 
 -- | Evaluate all examples of a given spec and produce a report.
-runFormatter :: Bool -> Handle -> Config -> Formatter -> [SpecTree] -> FormatM ()
+runFormatter :: Bool -> Handle -> Config -> Formatter -> [SpecTree ()] -> FormatM ()
 runFormatter useColor h c formatter specs = do
   headerFormatter formatter
   chan <- liftIO newChan
@@ -26,7 +26,7 @@ data Message = Done | Run (FormatM ())
 
 data Report = ReportProgress Progress | ReportResult (Either E.SomeException Result)
 
-run :: Chan Message -> Bool -> Handle -> Config -> Formatter -> [SpecTree] -> FormatM ()
+run :: Chan Message -> Bool -> Handle -> Config -> Formatter -> [SpecTree ()] -> FormatM ()
 run chan useColor h c formatter specs = do
   liftIO $ do
     forM_ (zip [0..] specs) (queueSpec [])
@@ -35,13 +35,13 @@ run chan useColor h c formatter specs = do
   where
     defer = writeChan chan . Run
 
-    queueSpec :: [String] -> (Int, SpecTree) -> IO ()
+    queueSpec :: [String] -> (Int, SpecTree ()) -> IO ()
     queueSpec rGroups (n, SpecGroup group xs) = do
       defer (exampleGroupStarted formatter n (reverse rGroups) group)
       forM_ (zip [0..] xs) (queueSpec (group : rGroups))
       defer (exampleGroupDone formatter)
     queueSpec rGroups (_, SpecItem (Item isParallelizable requirement e)) =
-      queueExample isParallelizable (reverse rGroups, requirement) (`e` id)
+      queueExample isParallelizable (reverse rGroups, requirement) (`e` ($ ()))
 
     queueExample :: Bool -> Path -> (Params -> IO Result) -> IO ()
     queueExample isParallelizable path e

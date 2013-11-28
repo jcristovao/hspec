@@ -1,6 +1,7 @@
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, GeneralizedNewtypeDeriving, DeriveDataTypeable, TypeFamilies #-}
 module Test.Hspec.Core.Type (
   Spec
+, SpecWith
 , SpecM (..)
 , runSpecM
 , fromSpecList
@@ -38,18 +39,20 @@ import qualified Test.QuickCheck.IO ()
 import           Test.Hspec.Core.QuickCheckUtil
 import           Control.DeepSeq (deepseq)
 
-type Spec = SpecM ()
+type Spec = SpecWith ()
+
+type SpecWith a = SpecM a ()
 
 -- | A writer monad for `SpecTree` forests.
-newtype SpecM a = SpecM (Writer [SpecTree] a)
+newtype SpecM a r = SpecM (Writer [SpecTree a] r)
   deriving (Functor, Applicative, Monad)
 
 -- | Convert a `Spec` to a forest of `SpecTree`s.
-runSpecM :: Spec -> [SpecTree]
+runSpecM :: SpecWith a -> [SpecTree a]
 runSpecM (SpecM specs) = execWriter specs
 
 -- | Create a `Spec` from a forest of `SpecTree`s.
-fromSpecList :: [SpecTree] -> Spec
+fromSpecList :: [SpecTree a] -> SpecWith a
 fromSpecList = SpecM . tell
 
 -- | The result of running an example.
@@ -73,18 +76,18 @@ data Params = Params {
 }
 
 -- | Internal representation of a spec.
-data SpecTree =
-    SpecGroup String [SpecTree]
-  | SpecItem Item
+data SpecTree a =
+    SpecGroup String [SpecTree a]
+  | SpecItem (Item a)
 
-data Item = Item {
+data Item a = Item {
   itemIsParallelizable :: Bool
 , itemRequirement :: String
-, itemExample :: Params -> (IO () -> IO ()) -> IO Result
+, itemExample :: Params -> ((a -> IO ()) -> IO ()) -> IO Result
 }
 
 -- | The @describe@ function combines a list of specs into a larger spec.
-describe :: String -> [SpecTree] -> SpecTree
+describe :: String -> [SpecTree a] -> SpecTree a
 describe s = SpecGroup msg
   where
     msg
@@ -92,7 +95,7 @@ describe s = SpecGroup msg
       | otherwise = s
 
 -- | Create a spec item.
-it :: Example a => String -> a -> SpecTree
+it :: Example e => String -> e -> SpecTree (A e)
 it s e = SpecItem $ Item False msg (evaluateExample e)
   where
     msg
@@ -100,22 +103,35 @@ it s e = SpecItem $ Item False msg (evaluateExample e)
       | otherwise = s
 
 -- | A type class for examples.
-class Example a where
-  evaluateExample :: a -> Params -> (IO () -> IO ()) -> IO Result
+class Example e where
+  type A e
+  evaluateExample :: e -> Params -> ((A e -> IO ()) -> IO ()) -> IO Result
 
 instance Example Bool where
+  type A Bool = ()
   evaluateExample b _ _ = if b then return Success else return (Fail "")
 
 instance Example Expectation where
+  type A Expectation = ()
+  evaluateExample p c = evaluateExample (\() -> p) c
+
+instance Example (a -> Expectation) where
+  type A (a -> Expectation) = a
   evaluateExample e _ action = (action e >> return Success) `E.catches` [
       E.Handler (\(HUnitFailure err) -> return (Fail err))
     , E.Handler (return :: Result -> IO Result)
     ]
 
 instance Example Result where
+  type A Result = ()
   evaluateExample r _ _ = return r
 
 instance Example QC.Property where
+  type A QC.Property = ()
+  evaluateExample p c = evaluateExample (\() -> p) c
+
+instance Example (a -> QC.Property) where
+  type A (a -> QC.Property) = a
   evaluateExample p c action = do
     r <- QC.quickCheckWithResult (paramsQuickCheckArgs c) {QC.chatty = False} (QCP.callback progressCallback $ aroundProperty action p)
     when (isUserInterrupt r) $ do
