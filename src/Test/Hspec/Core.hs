@@ -26,12 +26,14 @@ module Test.Hspec.Core (
 ) where
 
 import           Test.Hspec.Core.Type
+import           Control.Applicative
 
 mapSpecItem :: (Item a -> Item b) -> SpecWith a -> SpecWith b
 mapSpecItem f = fromSpecList . map go . runSpecM
   where
     go spec = case spec of
       SpecItem item -> SpecItem (f item)
+      BuildSpecs es -> BuildSpecs (map go <$> es)
       SpecGroup d es -> SpecGroup d (map go es)
 
 modifyParams :: (Params -> Params) -> Spec -> Spec

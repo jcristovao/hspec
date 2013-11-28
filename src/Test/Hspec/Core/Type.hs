@@ -78,6 +78,7 @@ data Params = Params {
 -- | Internal representation of a spec.
 data SpecTree a =
     SpecGroup String [SpecTree a]
+  | BuildSpecs (IO [SpecTree a])
   | SpecItem (Item a)
 
 data Item a = Item {

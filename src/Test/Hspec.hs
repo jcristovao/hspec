@@ -23,6 +23,7 @@ module Test.Hspec (
 , pending
 , pendingWith
 , before
+, beforeAll
 , after_
 , around
 , around_
@@ -38,6 +39,7 @@ import           Test.Hspec.HUnit ()
 import           Test.Hspec.Expectations
 import           Test.Hspec.Core (mapSpecItem)
 import qualified Test.Hspec.Core as Core
+import           System.IO.Memoize
 
 -- | Combine a list of specs into a larger spec.
 describe :: String -> SpecWith a -> SpecWith a
@@ -83,6 +85,14 @@ parallel = mapSpecItem $ \item -> item {itemIsParallelizable = True}
 -- | Run a custom action before every spec item.
 before :: IO a -> SpecWith a -> Spec
 before action = around (action >>=)
+
+-- | Run a custom action before every spec item.
+beforeAll :: IO a -> SpecWith a -> SpecWith ()
+beforeAll action = fromSpecList . return . BuildSpecs . foo .  runSpecM
+  where
+    foo xs = do
+      action_ <- ioMemo action
+      return . runSpecM $ before action_ (fromSpecList xs)
 
 -- | Run a custom action after every spec item.
 after :: (a -> IO ()) -> SpecWith a -> SpecWith a

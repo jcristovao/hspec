@@ -40,6 +40,10 @@ run chan useColor h c formatter specs = do
       defer (exampleGroupStarted formatter n (reverse rGroups) group)
       forM_ (zip [0..] xs) (queueSpec (group : rGroups))
       defer (exampleGroupDone formatter)
+    queueSpec rGroups (n, BuildSpecs xs) = do
+      ys <- xs
+      -- FIXME: n is screwed at this point..
+      forM_ (zip [n..] ys) (queueSpec rGroups)
     queueSpec rGroups (_, SpecItem (Item isParallelizable requirement e)) =
       queueExample isParallelizable (reverse rGroups, requirement) (`e` ($ ()))
 
